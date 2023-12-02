@@ -2,6 +2,7 @@
 using ActionService.Entities;
 using AuctionService.Data;
 using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -29,13 +30,24 @@ public class AuctionsController : ControllerBase
 
 
     [HttpGet]
-    public async Task<ActionResult<List<AuctionDto>>> GetAllAuctions() {
-        var auctions = await _context.Auctions
-            .Include(x => x.Item)
-            .OrderBy(x => x.Item.Make)
-            .ToListAsync(); // 真正向数据库发送请求的函数
+    public async Task<ActionResult<List<AuctionDto>>> GetAllAuctions(string date) {
+        var query = _context.Auctions.OrderBy(x => x.Item.Make).AsQueryable();
+        // query的类型在用了OrderBy之后变成了： IOrderedQueryable<Auction> query 
+        // 所以需要把类型转换回去queryable的类型否则无法query
+
+        if(!string.IsNullOrEmpty(date)) {  
+            query = query.Where(x => x.UpdatedAt.CompareTo(DateTime.Parse(date).ToUniversalTime()) > 0);
+
+        }
+
+        return await query.ProjectTo<AuctionDto>(_mapper.ConfigurationProvider).ToListAsync();
+        // replaced
+        // var auctions = await _context.Auctions
+        //     .Include(x => x.Item)
+        //     .OrderBy(x => x.Item.Make)
+        //     .ToListAsync(); // 真正向数据库发送请求的函数
         
-        return _mapper.Map<List<AuctionDto>>(auctions);
+        // return _mapper.Map<List<AuctionDto>>(auctions);  
     }
 
     [HttpGet("{id}")]
